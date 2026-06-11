@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import os
 import argparse
 import logging
 from pathlib import Path
@@ -7,10 +6,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from deepface import DeepFace
-from scipy.spatial.distance import cosine, euclidean
 from scipy.linalg import norm
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from scipy.spatial.distance import cosine, euclidean
 
 MODELS = ['ArcFace', 'Dlib', 'VGG-Face', 'SFace', 'Facenet', 'Facenet512', 'DeepFace']
 DISTANCE_METRICS = ['cosine']
@@ -157,61 +154,10 @@ def verify_subjects(gallery_base_path, probe_base_path, log_base_dir):
     return pd.DataFrame(results)
 
 
-def save_results_to_excel(df, output_path):
-    wb = Workbook()
-    ws = wb.active
-    ws.title = 'Verification Results'
-
-    header_fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
-    header_font = Font(bold=True, color='FFFFFF', size=12)
-    data_alignment = Alignment(horizontal='center', vertical='center')
-    border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-
-    headers = ['Model', 'Metric', 'Subject', 'Total', 'Correct', 'Accuracy (%)']
-    for col, h in enumerate(headers, 1):
-        c = ws.cell(row=1, column=col, value=h)
-        c.fill = header_fill
-        c.font = header_font
-        c.alignment = data_alignment
-        c.border = border
-
-    for row_idx, row in enumerate(df.itertuples(index=False), 2):
-        values = [row.model, row.metric, row.subject, row.total, row.correct, round(row.accuracy * 100, 2)]
-        for col, val in enumerate(values, 1):
-            c = ws.cell(row=row_idx, column=col, value=val)
-            c.alignment = data_alignment
-            c.border = border
-
-    summary_start = len(df) + 4
-    ws.cell(row=summary_start, column=1, value='SUMMARY BY MODEL AND METRIC').font = Font(bold=True, size=12)
-    summary_headers = ['Model', 'Metric', 'Total', 'Correct', 'Accuracy (%)']
-    for col, h in enumerate(summary_headers, 1):
-        c = ws.cell(row=summary_start + 1, column=col, value=h)
-        c.fill = header_fill
-        c.font = header_font
-        c.alignment = data_alignment
-        c.border = border
-
-    grouped = df.groupby(['model', 'metric'], as_index=False).agg({'total': 'sum', 'correct': 'sum'})
-    grouped['accuracy'] = np.where(grouped['total'] > 0, grouped['correct'] / grouped['total'] * 100, 0)
-    for i, row in enumerate(grouped.itertuples(index=False), summary_start + 2):
-        vals = [row.model, row.metric, int(row.total), int(row.correct), round(row.accuracy, 2)]
-        for col, val in enumerate(vals, 1):
-            c = ws.cell(row=i, column=col, value=val)
-            c.alignment = data_alignment
-            c.border = border
-
-    widths = {'A': 15, 'B': 15, 'C': 20, 'D': 12, 'E': 12, 'F': 15}
-    for col, width in widths.items():
-        ws.column_dimensions[col].width = width
-
-    wb.save(output_path)
-
-
 def save_results_to_csv(df, output_path):
-    df_out = df.copy()
-    df_out['accuracy_pct'] = (df_out['accuracy'] * 100).round(2)
-    df_out.to_csv(output_path, index=False)
+    out = df.copy()
+    out['accuracy_pct'] = (out['accuracy'] * 100).round(2)
+    out.to_csv(output_path, index=False)
 
 
 def main():
@@ -219,7 +165,6 @@ def main():
     parser.add_argument('gallery_base_path', help='Root gallery folder')
     parser.add_argument('probe_base_path', help='Root probe folder')
     parser.add_argument('log_base_dir', help='Directory for logs')
-    parser.add_argument('--output_excel', default='verification_results.xlsx', help='Excel output file')
     parser.add_argument('--output_csv', default='verification_results.csv', help='CSV output file')
     args = parser.parse_args()
 
@@ -231,10 +176,8 @@ def main():
         return
 
     save_results_to_csv(df, args.output_csv)
-    save_results_to_excel(df, args.output_excel)
     print(df[['model', 'metric', 'subject', 'total', 'correct', 'accuracy']].to_string(index=False))
     print(f'CSV saved to: {args.output_csv}')
-    print(f'Excel saved to: {args.output_excel}')
 
 
 if __name__ == '__main__':
